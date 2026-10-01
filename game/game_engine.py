@@ -6,6 +6,9 @@ COLS, ROWS = 13, 11
 WIDTH = COLS * CELL
 HEIGHT = ROWS * CELL + 50
 FPS = 60
+RAMP_MS = 15000
+RAMP_STEP = 2
+MIN_INTERVAL = 5
 
 class GameEngine:
     def __init__(self):
@@ -14,6 +17,7 @@ class GameEngine:
         pygame.display.set_caption("Maze Chase")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("monospace", 22)
+        self.small_font = pygame.font.SysFont("monospace", 16)
         self.big_font = pygame.font.SysFont("monospace", 38, bold=True)
         self.reset()
 
@@ -28,6 +32,9 @@ class GameEngine:
         self.exit_rect = pygame.Rect((COLS//2)*CELL+5, (ROWS//2)*CELL+5, CELL-10, CELL-10)
         self.caught = False
         self.won = False
+        self.start_ticks = pygame.time.get_ticks()
+        self.elapsed = 0
+        self.tier = 0
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -35,8 +42,20 @@ class GameEngine:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r: self.reset()
         return True
 
+    def _apply_ramp(self):
+        target = self.elapsed // RAMP_MS
+        while self.tier < target:
+            self.tier += 1
+            for enemy in self.enemies:
+                enemy.move_interval = max(MIN_INTERVAL, enemy.move_interval - RAMP_STEP)
+
+    def _at_speed_floor(self):
+        return all(e.move_interval <= MIN_INTERVAL for e in self.enemies)
+
     def update(self):
         if self.caught or self.won: return
+        self.elapsed = pygame.time.get_ticks() - self.start_ticks
+        self._apply_ramp()
         keys = pygame.key.get_pressed()
         self.player.move(keys, self.walls, ROWS, COLS)
         for enemy in self.enemies:
@@ -65,8 +84,12 @@ class GameEngine:
             enemy.draw(self.screen)
         hud=pygame.Rect(0,ROWS*CELL,WIDTH,50)
         pygame.draw.rect(self.screen,(30,30,50),hud)
-        info=self.font.render("Reach EXIT before the enemies catch you!  R=Restart",True,(200,200,200))
-        self.screen.blit(info,(8,ROWS*CELL+14))
+        info=self.small_font.render("Reach EXIT before the enemies catch you!  R=Restart",True,(200,200,200))
+        self.screen.blit(info,(8,ROWS*CELL+8))
+        tier_label = "MAX" if self._at_speed_floor() else str(self.tier + 1)
+        secs = self.elapsed // 1000
+        speed=self.small_font.render(f"Enemy speed tier: {tier_label}   Time: {secs}s",True,(240,190,90))
+        self.screen.blit(speed,(8,ROWS*CELL+28))
         if self.caught:
             self._overlay("CAUGHT!", (220,60,60))
         if self.won:
