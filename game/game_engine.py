@@ -41,6 +41,7 @@ class GameEngine:
         self.start_ticks = pygame.time.get_ticks()
         self.elapsed = 0
         self.tier = 0
+        self.score = 0
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -60,6 +61,7 @@ class GameEngine:
 
     def update(self):
         if self.caught or self.won: return
+        self.score += 1
         self.elapsed = pygame.time.get_ticks() - self.start_ticks
         self._apply_ramp()
         keys = pygame.key.get_pressed()
@@ -100,8 +102,7 @@ class GameEngine:
         info=self.small_font.render("Reach EXIT before the enemies catch you!  R=Restart",True,(200,200,200))
         self.screen.blit(info,(8,ROWS*CELL+8))
         tier_label = "MAX" if self._at_speed_floor() else str(self.tier + 1)
-        secs = self.elapsed // 1000
-        text = f"Enemy speed tier: {tier_label}   Time: {secs}s"
+        text = f"Enemy speed tier: {tier_label}   Survived: {self.score // FPS}s"
         frozen_left = max(e.freeze_timer for e in self.enemies)
         if frozen_left > 0:
             text += f"   FROZEN: {frozen_left / FPS:.1f}s"
@@ -118,9 +119,11 @@ class GameEngine:
         surf.fill((0,0,0,140))
         self.screen.blit(surf,(0,0))
         msg=self.big_font.render(text,True,color)
+        score=self.font.render(f"Survived: {self.score // FPS}s",True,(240,190,90))
         sub=self.font.render("Press R to Restart",True,(200,200,200))
         self.screen.blit(msg,(WIDTH//2-msg.get_width()//2,ROWS*CELL//2-30))
-        self.screen.blit(sub,(WIDTH//2-sub.get_width()//2,ROWS*CELL//2+20))
+        self.screen.blit(score,(WIDTH//2-score.get_width()//2,ROWS*CELL//2+18))
+        self.screen.blit(sub,(WIDTH//2-sub.get_width()//2,ROWS*CELL//2+48))
 
     def run(self):
         running=True
