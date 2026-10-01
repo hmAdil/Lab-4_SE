@@ -56,11 +56,25 @@ class Enemy:
         cx, cy = c*CELL+CELL//2, r*CELL+CELL//2
         self.rect = pygame.Rect(cx-12, cy-12, 24, 24)
         self.color = (220, 60, 60)
+        self.frozen_color = (90, 160, 240)
+        self.ice_color = (210, 235, 255)
         self.timer = 0
         self.move_interval = 20
+        self.frozen = False
+        self.freeze_timer = 0
+
+    def freeze(self, frames):
+        self.frozen = True
+        self.freeze_timer = frames
 
     def update(self, walls, player, rows, cols):
         from game.maze import bfs
+        if self.frozen:
+            self.freeze_timer -= 1
+            if self.freeze_timer <= 0:
+                self.frozen = False
+                self.freeze_timer = 0
+            return
         self.timer += 1
         if self.timer >= self.move_interval:
             self.timer = 0
@@ -73,7 +87,11 @@ class Enemy:
                 self.rect.center = (cx, cy)
 
     def draw(self, screen):
-        pygame.draw.rect(screen, self.color, self.rect, border_radius=5)
+        body = self.frozen_color if self.frozen else self.color
+        pygame.draw.rect(screen, body, self.rect, border_radius=5)
+        if self.frozen:
+            pygame.draw.rect(screen, self.ice_color, self.rect, width=2, border_radius=5)
+            pygame.draw.line(screen, self.ice_color, (self.rect.x+3, self.rect.bottom-6), (self.rect.right-3, self.rect.bottom-6), 2)
         for ex in [self.rect.x+4, self.rect.x+14]:
             pygame.draw.circle(screen, (255,255,255), (ex, self.rect.y+8), 4)
             pygame.draw.circle(screen, (0,0,0), (ex+1, self.rect.y+8), 2)

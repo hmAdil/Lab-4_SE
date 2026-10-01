@@ -9,6 +9,9 @@ FPS = 60
 RAMP_MS = 15000
 RAMP_STEP = 2
 MIN_INTERVAL = 5
+FREEZE_FRAMES = 300
+PELLET_CELL = (ROWS//2, COLS//2 - 2)
+PELLET_R = 7
 
 class GameEngine:
     def __init__(self):
@@ -30,6 +33,9 @@ class GameEngine:
             Enemy(ROWS-1, COLS-1),
         ]
         self.exit_rect = pygame.Rect((COLS//2)*CELL+5, (ROWS//2)*CELL+5, CELL-10, CELL-10)
+        pr, pc = PELLET_CELL
+        pcx, pcy = pc*CELL+CELL//2, pr*CELL+CELL//2
+        self.pellet = pygame.Rect(pcx-PELLET_R, pcy-PELLET_R, PELLET_R*2, PELLET_R*2)
         self.caught = False
         self.won = False
         self.start_ticks = pygame.time.get_ticks()
@@ -58,6 +64,10 @@ class GameEngine:
         self._apply_ramp()
         keys = pygame.key.get_pressed()
         self.player.move(keys, self.walls, ROWS, COLS)
+        if self.pellet is not None and self.player.rect.colliderect(self.pellet):
+            self.pellet = None
+            for enemy in self.enemies:
+                enemy.freeze(FREEZE_FRAMES)
         for enemy in self.enemies:
             enemy.update(self.walls, self.player, ROWS, COLS)
             if self.player.rect.colliderect(enemy.rect):
@@ -79,6 +89,9 @@ class GameEngine:
         pygame.draw.rect(self.screen,(80,200,80),self.exit_rect,border_radius=4)
         lbl=self.font.render("EXIT",True,(20,80,20))
         self.screen.blit(lbl,(self.exit_rect.x+2,self.exit_rect.y+6))
+        if self.pellet is not None:
+            pygame.draw.circle(self.screen,(250,220,40),self.pellet.center,PELLET_R)
+            pygame.draw.circle(self.screen,(180,140,10),self.pellet.center,PELLET_R,2)
         self.player.draw(self.screen)
         for enemy in self.enemies:
             enemy.draw(self.screen)
@@ -88,7 +101,11 @@ class GameEngine:
         self.screen.blit(info,(8,ROWS*CELL+8))
         tier_label = "MAX" if self._at_speed_floor() else str(self.tier + 1)
         secs = self.elapsed // 1000
-        speed=self.small_font.render(f"Enemy speed tier: {tier_label}   Time: {secs}s",True,(240,190,90))
+        text = f"Enemy speed tier: {tier_label}   Time: {secs}s"
+        frozen_left = max(e.freeze_timer for e in self.enemies)
+        if frozen_left > 0:
+            text += f"   FROZEN: {frozen_left / FPS:.1f}s"
+        speed=self.small_font.render(text,True,(240,190,90))
         self.screen.blit(speed,(8,ROWS*CELL+28))
         if self.caught:
             self._overlay("CAUGHT!", (220,60,60))
