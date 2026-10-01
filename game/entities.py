@@ -2,6 +2,7 @@ import pygame
 from game.maze import CELL
 
 SPEED = 2
+WALL_T = 4
 
 class Player:
     def __init__(self, r, c):
@@ -11,21 +12,40 @@ class Player:
         self.color = (60, 120, 220)
 
     def move(self, keys, walls, rows, cols):
-        dx=dy=0
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]: dx=-SPEED
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]: dx=SPEED
-        if keys[pygame.K_UP] or keys[pygame.K_w]: dy=-SPEED
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]: dy=SPEED
-        nr = self.rect.move(dx,0)
-        if self._valid(nr, walls, rows, cols): self.rect=nr
-        nr = self.rect.move(0,dy)
-        if self._valid(nr, walls, rows, cols): self.rect=nr
+        dx = dy = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]: dx = -SPEED
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]: dx = SPEED
+        if keys[pygame.K_UP] or keys[pygame.K_w]: dy = -SPEED
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]: dy = SPEED
+        nr = self.rect.move(dx, 0)
+        if self._valid(nr, walls, rows, cols): self.rect = nr
+        nr = self.rect.move(0, dy)
+        if self._valid(nr, walls, rows, cols): self.rect = nr
 
     def _valid(self, rect, walls, rows, cols):
-        for px,py in [(rect.left,rect.top),(rect.right-1,rect.top),(rect.left,rect.bottom-1),(rect.right-1,rect.bottom-1)]:
-            cr,cc=py//CELL,px//CELL
-            if not(0<=cr<rows and 0<=cc<cols): return False
+        if rect.left < 0 or rect.top < 0 or rect.right > cols*CELL or rect.bottom > rows*CELL:
+            return False
+        r0 = max(0, (rect.top - WALL_T)//CELL)
+        r1 = min(rows-1, (rect.bottom + WALL_T)//CELL)
+        c0 = max(0, (rect.left - WALL_T)//CELL)
+        c1 = min(cols-1, (rect.right + WALL_T)//CELL)
+        for r in range(r0, r1+1):
+            for c in range(c0, c1+1):
+                for wall in self._wall_rects(r, c, walls[r][c]):
+                    if rect.colliderect(wall):
+                        return False
         return True
+
+    def _wall_rects(self, r, c, cell_walls):
+        x, y = c*CELL, r*CELL
+        h = WALL_T//2
+        top, bottom, right, left = cell_walls
+        out = []
+        if top: out.append(pygame.Rect(x-h, y-h, CELL+WALL_T, WALL_T))
+        if bottom: out.append(pygame.Rect(x-h, y+CELL-h, CELL+WALL_T, WALL_T))
+        if right: out.append(pygame.Rect(x+CELL-h, y-h, WALL_T, CELL+WALL_T))
+        if left: out.append(pygame.Rect(x-h, y-h, WALL_T, CELL+WALL_T))
+        return out
 
     def draw(self, screen):
         pygame.draw.ellipse(screen, self.color, self.rect)
@@ -37,7 +57,7 @@ class Enemy:
         self.rect = pygame.Rect(cx-12, cy-12, 24, 24)
         self.color = (220, 60, 60)
         self.timer = 0
-        self.move_interval = 20  # frames between cell moves
+        self.move_interval = 20
 
     def update(self, walls, player, rows, cols):
         from game.maze import bfs
@@ -54,7 +74,6 @@ class Enemy:
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, self.rect, border_radius=5)
-        # eyes
         for ex in [self.rect.x+4, self.rect.x+14]:
             pygame.draw.circle(screen, (255,255,255), (ex, self.rect.y+8), 4)
             pygame.draw.circle(screen, (0,0,0), (ex+1, self.rect.y+8), 2)
